@@ -8,6 +8,8 @@
 #include <fstream>
 #include <sstream>
 #include <cstdio>
+#include <algorithm>
+#include <string>
 
 #ifdef __GNUC__
 #include <getopt.h>
@@ -42,6 +44,7 @@ static string OUT_FILE_COL_HEADERS =
     "Bounding box vertex 2 X (px),Bounding box vertex 2 Y (px),"\
     "Bounding box vertex 3 X (px),Bounding box vertex 3 Y (px),"\
     "Bounding box vertex 4 X (px),Bounding box vertex 4 Y (px)";
+static int IMG_SIZE = 720;
 
 vector<float> getNextLineAndSplitIntoFloats(istream& str)
 {
@@ -56,6 +59,35 @@ vector<float> getNextLineAndSplitIntoFloats(istream& str)
         result.push_back(atof(cell.c_str()));
     }
     return result;
+}
+
+void saveBbox(Mat im, int frame, Point2f *point)
+{
+       float w = point[3].x - point[1].x;
+       float h = point[3].y - point[1].y;
+       float x = w/2 + point[1].x;
+       float y = h/2 + point[1].y;
+
+       char temp[100];
+       sprintf(temp, "/tmp/cmt/%d.txt", frame);
+       ofstream output_file(temp);
+       output_file << "0 " << x << " " << y << " " << w << " " << h << std::endl;
+       output_file.close();
+       sprintf(temp, "/tmp/cmt/%d.jpg", frame);
+       imwrite(temp, im);
+}
+
+bool checkBbox(Point2f *point){
+    float points[4] = {point[1].x, point[1].y, point[3].x, point[3].y};
+    float max = *max_element(points, points+4);
+    float min = *min_element(points, points+4);
+    printf("min:%.f\tmax:%.f\n", min, max);
+
+    if(min<0 or max>IMG_SIZE){
+        return false;
+    }
+
+    return true;
 }
 
 int display(Mat im, CMT & cmt)
@@ -412,8 +444,6 @@ int main(int argc, char **argv)
     //Main loop
     while (true)
     {
-        frame++;
-
         Mat im;
 
         //If loop flag is set, reuse initial image (for debugging purposes)
@@ -431,6 +461,15 @@ int main(int argc, char **argv)
 
         //Let CMT process the frame
         cmt.processFrame(im_gray);
+        Point2f vertices[4];
+        cmt.bb_rot.points(vertices);
+
+        saveBbox(im, frame, vertices);
+        printf("<<<< frame: %d ---- \n", frame);
+
+        if(!checkBbox(vertices)){
+            continue;
+        }
 
         //Output.
         if (output_flag)
@@ -449,6 +488,8 @@ int main(int argc, char **argv)
         //Display image and then quit if requested.
         char key = display(im, cmt);
         if(key == 'q') break;
+
+        frame++;
     }
 
     //Close output file.
