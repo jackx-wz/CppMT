@@ -63,10 +63,10 @@ vector<float> getNextLineAndSplitIntoFloats(istream& str)
 
 void saveBbox(Mat im, int frame, Point2f *point)
 {
-       float w = point[3].x - point[1].x;
-       float h = point[3].y - point[1].y;
-       float x = w/2 + point[1].x;
-       float y = h/2 + point[1].y;
+       float w = (point[3].x - point[1].x) / IMG_SIZE;
+       float h = (point[3].y - point[1].y) / IMG_SIZE;
+       float x = (w/2 + point[1].x) / IMG_SIZE;
+       float y = (h/2 + point[1].y) / IMG_SIZE;
 
        char temp[100];
        sprintf(temp, "/tmp/cmt/%d.txt", frame);
