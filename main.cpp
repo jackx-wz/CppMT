@@ -19,7 +19,7 @@
 
 using cmt::CMT;
 using cv::imread;
-using cv::namedWindow;
+//using cv::namedWindow;
 using cv::Scalar;
 using cv::VideoCapture;
 using cv::waitKey;
@@ -63,18 +63,18 @@ vector<float> getNextLineAndSplitIntoFloats(istream& str)
 
 void saveBbox(Mat im, int frame, Point2f *point)
 {
-       float w = (point[3].x - point[1].x) / IMG_SIZE;
-       float h = (point[3].y - point[1].y) / IMG_SIZE;
-       float x = (w/2 + point[1].x) / IMG_SIZE;
-       float y = (h/2 + point[1].y) / IMG_SIZE;
+	float w = point[3].x - point[1].x;
+	float h = point[3].y - point[1].y;
+	float x = w/2 + point[1].x;
+	float y = h/2 + point[1].y;
 
-       char temp[100];
-       sprintf(temp, "/tmp/cmt/%d.txt", frame);
-       ofstream output_file(temp);
-       output_file << "0 " << x << " " << y << " " << w << " " << h << std::endl;
-       output_file.close();
-       sprintf(temp, "/tmp/cmt/%d.jpg", frame);
-       imwrite(temp, im);
+	char temp[100];
+	sprintf(temp, "/tmp/cmt/%d.txt", frame);
+	ofstream output_file(temp);
+	output_file << "0 " << x/IMG_SIZE << " " << y/IMG_SIZE << " " << w/IMG_SIZE << " " << h/IMG_SIZE << std::endl;
+	output_file.close();
+	sprintf(temp, "/tmp/cmt/%d.jpg", frame);
+	imwrite(temp, im);
 }
 
 bool checkBbox(Point2f *point){
@@ -101,6 +101,7 @@ int display(Mat im, CMT & cmt)
 
     Point2f vertices[4];
     cmt.bb_rot.points(vertices);
+
     for (int i = 0; i < 4; i++)
     {
         line(im, vertices[i], vertices[(i+1)%4], Scalar(255,0,0));
@@ -141,6 +142,7 @@ int main(int argc, char **argv)
     //Parse args
     int challenge_flag = 0;
     int loop_flag = 0;
+    int preview_flag = 0;
     int verbose_flag = 0;
     int bbox_flag = 0;
     int skip_frames = 0;
@@ -163,6 +165,7 @@ int main(int argc, char **argv)
         //No-argument options
         {"challenge", no_argument, &challenge_flag, 1},
         {"loop", no_argument, &loop_flag, 1},
+        {"preview", no_argument, &preview_flag, 1},
         {"verbose", no_argument, &verbose_flag, 1},
         {"no-scale", no_argument, 0, no_scale_cmd},
         {"with-rotation", no_argument, 0, with_rotation_cmd},
@@ -330,7 +333,7 @@ int main(int argc, char **argv)
             Mat im_gray;
             cvtColor(im, im_gray, CV_BGR2GRAY);
             cmt.processFrame(im_gray);
-            if (verbose_flag)
+            if (verbose_flag && preview_flag)
             {
                 display(im, cmt);
             }
@@ -346,11 +349,13 @@ int main(int argc, char **argv)
     //Normal mode
 
     //Create window
-    namedWindow(WIN_NAME);
+    if(preview_flag){
+        cv::namedWindow(WIN_NAME);
+    }
 
     VideoCapture cap;
 
-    bool show_preview = true;
+    bool show_preview = (preview_flag == 1);
 
     //If no input was specified
     if (input_path.length() == 0)
@@ -444,6 +449,7 @@ int main(int argc, char **argv)
     //Main loop
     while (true)
     {
+
         Mat im;
 
         //If loop flag is set, reuse initial image (for debugging purposes)
@@ -461,12 +467,12 @@ int main(int argc, char **argv)
 
         //Let CMT process the frame
         cmt.processFrame(im_gray);
+
         Point2f vertices[4];
         cmt.bb_rot.points(vertices);
 
         saveBbox(im, frame, vertices);
         printf("<<<< frame: %d ---- \n", frame);
-
         if(!checkBbox(vertices)){
             continue;
         }
@@ -486,9 +492,10 @@ int main(int argc, char **argv)
         }
 
         //Display image and then quit if requested.
-        char key = display(im, cmt);
-        if(key == 'q') break;
-
+        if(preview_flag){
+            display(im, cmt);
+        }
+        //if(key == 'q') break;
         frame++;
     }
 
